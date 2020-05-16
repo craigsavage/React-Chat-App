@@ -3,7 +3,7 @@ const express = require('express'),
 
 const http = require('http').createServer(app),
       io   = require('socket.io')(http),
-      cors = require('express');
+      cors = require('cors');
 
 const { addUser, removeUser, getUser, getUsersInRoom } = require('./users.js');
 
@@ -22,14 +22,16 @@ io.on('connection', (socket) => {
 
         // Returns an error if username is taken
         if(error) return callback(error);
-        console.log('HI')
+        
         // Emit ~ To just the user
         socket.emit('message', { user: 'admin', text: `Hi ${user.name}! Welcome to ${user.room}!` });
         
         // Broadcast ~ To everyone but the user 
         socket.broadcast.to(user.room).emit('message', { user: 'admin', text: `${user.name}, has join the chat!` });
 
-        socket.join(user.room)  // Adds user to the room
+        socket.join(user.room);  // Adds user to the room
+
+        io.to(user.room).emit('roomData', { room: user.room , users: getUsersInRoom(user.room) });
 
         callback();
     });
@@ -39,13 +41,17 @@ io.on('connection', (socket) => {
         const user = getUser(socket.id);
         
         io.to(user.room).emit('message', { user: user.name, text: message });
-        
+        io.to(user.room).emit('roomData', { room: user.room, users: getUsersInRoom(user.room) });
 
         callback();
     });
 
     socket.on('disconnect', () => {
-        console.log('User disconnected');
+        const user = removeUser(socket.id);
+
+        if(user) {
+            io.to(user.room).emit('message', { user: 'admin', text: `${user.name} has left.`})
+        }
     });
 });
 
