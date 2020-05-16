@@ -4,12 +4,18 @@ import io from 'socket.io-client';
 
 import './Chat.css';
 
+import InfoBar from '../InfoBar/InfoBar';
+import Input from '../Input/Input';
+import Messages from '../Messages/Messages';
+
 let socket;
 
 // location prop from react-router
 const Chat = ({ location }) => {
-    const [ name, setName ] = useState('');
-    const [ room, setRoom ] = useState('');
+    const [name, setName] = useState('');
+    const [room, setRoom] = useState('');
+    const [message, setMessage] = useState('');
+    const [messages, setMessages] = useState([]);
 
     const ENDPOINT = 'localhost:5000';
 
@@ -18,17 +24,47 @@ const Chat = ({ location }) => {
 
         socket = io(ENDPOINT);  // Stores a unique conecction to server
 
-        setName( name );
-        setRoom( room );
+        setName(name);
+        setRoom(room);
 
-        socket.emit('join', { name, room });
+        socket.emit('join', { name, room }, () => {
+            // Executed on callback return
+
+        });
+
+        // Executes on unmounting (AKA - leaving the chat)
+        return () => {
+            socket.emit('disconnect');
+            socket.off();   // Turns off user's socket instance
+        }
     }, [ENDPOINT, location.search]);
 
+    useEffect(() => {
+        socket.on('message', (message) => {
+            setMessages([...messages, message]);
+        })
+    }, [messages]);
+
+    // Function for sending messages
+    const sendMessage = (event) => {
+        event.preventDefault();
+
+        if(message) {
+            socket.emit('sendMessage', message, () => setMessage(''));
+        }
+    }
+
+    console.log(message, messages);
+
     return (
-        <div>
-            Yo
+        <div className="outerContainer">
+            <div className="container">
+                <InfoBar room={room}/>
+                <Messages messages={messages} name={name} />
+                <Input message={message} setMessage={setMessage} sendMessage={sendMessage} />
+            </div>
         </div>
-    )
+    );
 }
 
 export default Chat;
